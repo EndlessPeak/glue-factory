@@ -147,6 +147,10 @@ class SelfBlock(nn.Module):
         encoding: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        # 使用 xfeat+lg 时不支持反向传播, 可能是由于 @torch.inference_mode() 装饰器导致的
+        # 方法一：对其本身新增一个克隆
+        # x_clone = x.clone()
+        # 方法二：去掉装饰器
         qkv = self.Wqkv(x)
         qkv = qkv.unflatten(-1, (self.num_heads, -1, 3)).transpose(1, 2)
         q, k, v = qkv[..., 0], qkv[..., 1], qkv[..., 2]
@@ -306,6 +310,7 @@ def filter_matches(scores: torch.Tensor, th: float):
 class LightGlue(nn.Module):
     default_conf = {
         "name": "lightglue",  # just for interfacing
+        # 修改 input_dim 和 descriptor_dim 的维度是不可行的，因为它们已被硬编码
         "input_dim": 256,  # input descriptor dimension (autoselected from weights)
         "add_scale_ori": False,
         "descriptor_dim": 256,
@@ -399,7 +404,8 @@ class LightGlue(nn.Module):
     def forward(self, data: dict) -> dict:
         for key in self.required_data_keys:
             assert key in data, f"Missing key {key} in data"
-
+        
+        # 这里期望的 kpts0 和 kpts1 是 pytorch 张量
         kpts0, kpts1 = data["keypoints0"], data["keypoints1"]
         b, m, _ = kpts0.shape
         b, n, _ = kpts1.shape
@@ -432,7 +438,10 @@ class LightGlue(nn.Module):
 
         desc0 = data["descriptors0"].contiguous()
         desc1 = data["descriptors1"].contiguous()
-
+        
+        # print("desc0 shape:", desc0.shape)
+        # print("desc1 shape:", desc1.shape)
+        
         assert desc0.shape[-1] == self.conf.input_dim
         assert desc1.shape[-1] == self.conf.input_dim
         if torch.is_autocast_enabled():

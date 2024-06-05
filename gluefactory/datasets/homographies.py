@@ -130,18 +130,24 @@ class HomographyDataset(BaseDataset):
     def download_revisitop1m(self):
         data_dir = DATA_PATH / self.conf.data_dir
         tmp_dir = data_dir.parent / "revisitop1m_tmp"
-        if tmp_dir.exists():  # The previous download failed.
-            shutil.rmtree(tmp_dir)
+        # 下载失败将删除已有的下载内容，不启用
+        # if tmp_dir.exists():  # The previous download failed.
+        #     shutil.rmtree(tmp_dir)
         image_dir = tmp_dir / self.conf.image_dir
         image_dir.mkdir(exist_ok=True, parents=True)
         num_files = 100
         url_base = "http://ptak.felk.cvut.cz/revisitop/revisitop1m/"
         list_name = "revisitop1m.txt"
-        torch.hub.download_url_to_file(url_base + list_name, tmp_dir / list_name)
-        for n in tqdm(range(num_files), position=1):
+        list_file_path = tmp_dir / list_name
+        if not list_file_path.exists():
+            torch.hub.download_url_to_file(url_base + list_name, tmp_dir / list_name)
+        # 已全部下载
+        for n in tqdm(range(0,num_files), position=1):
             tar_name = "revisitop1m.{}.tar.gz".format(n + 1)
             tar_path = image_dir / tar_name
-            torch.hub.download_url_to_file(url_base + "jpg/" + tar_name, tar_path)
+            # 如果已下载则跳过
+            if not tar_path.exists():
+                torch.hub.download_url_to_file(url_base + "jpg/" + tar_name, tar_path)
             with tarfile.open(tar_path) as tar:
                 tar.extractall(path=image_dir)
             tar_path.unlink()

@@ -1,16 +1,26 @@
+# 字典子类，用于在键不存在时返回默认值
 from collections import defaultdict
+# 检查对象是否可迭代
 from collections.abc import Iterable
+# 提供面向对象的方法处理路径
 from pathlib import Path
+# 提供格式化的方式打印数据结构
 from pprint import pprint
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+# 处理配置文件
 from omegaconf import OmegaConf
+# 添加进度条
 from tqdm import tqdm
 
+#下面的库将从上级目录或同级目录引入方法
+# 获取数据集
 from ..datasets import get_dataset
+# 数据预加载到缓存或内存的类
 from ..models.cache_loader import CacheLoader
+# 导入 “评估路径” 常量
 from ..settings import EVAL_PATH
 from ..utils.export_predictions import export_predictions
 from ..utils.tensor import map_tensor
@@ -31,7 +41,7 @@ class HPatchesPipeline(EvalPipeline):
         "data": {
             "batch_size": 1,
             "name": "hpatches",
-            "num_workers": 16,
+            "num_workers": 10,  # 处理核心数量
             "preprocessing": {
                 "resize": 480,  # we also resize during eval to have comparable metrics
                 "side": "short",

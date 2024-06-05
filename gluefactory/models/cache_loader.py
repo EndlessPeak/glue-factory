@@ -56,18 +56,19 @@ def recursive_load(grp, pkeys):
     }
 
 
+# CacheLoader 类继承自 BaseModel
 class CacheLoader(BaseModel):
     default_conf = {
-        "path": "???",  # can be a format string like exports/{scene}/
-        "data_keys": None,  # load all keys
-        "device": None,  # load to same device as data
-        "trainable": False,
-        "add_data_path": True,
-        "collate": True,
-        "scale": ["keypoints", "lines", "orig_lines"],
-        "padding_fn": None,
-        "padding_length": None,  # required for batching!
-        "numeric_type": "float32",  # [None, "float16", "float32", "float64"]
+        "path": "???",  # 可以是格式化字符串，如 exports/{scene}/，用于指示数据文件位置
+        "data_keys": None,  # 需要加载的数据键列表，如果为 None，则加载所有键
+        "device": None,  # 加载数据后存储的设备，如果为 None，则与数据存储设备保持一致
+        "trainable": False, # 指示加载的数据是否可训练
+        "add_data_path": True, # 是否将数据路径添加到加载的数据中
+        "collate": True, # 是否对加载的数据进行整理
+        "scale": ["keypoints", "lines", "orig_lines"], # 需要缩放的数据键列表
+        "padding_fn": None, # 用于填充缺失数据的函数
+        "padding_length": None,  # 用于批处理时指定填充的长度，批处理需要！
+        "numeric_type": "float32",  # 指定数据的数值类型 可用值为 [None, "float16", "float32", "float64"]
     }
 
     required_data_keys = ["name"]  # we need an identifier

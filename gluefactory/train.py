@@ -46,7 +46,7 @@ default_train_conf = {
     "optimizer": "adam",  # name of optimizer in [adam, sgd, rmsprop]
     "opt_regexp": None,  # regular expression to filter parameters to optimize
     "optimizer_options": {},  # optional arguments passed to the optimizer
-    "lr": 0.001,  # learning rate
+    "lr": 0.0000625,  # learning rate 由于CUDA内存有限，批处理大小由128调整为8，学习率应当由0.001降低为0.0000625
     "lr_schedule": {
         "type": None,  # string in {factor, exp, member of torch.optim.lr_scheduler}
         "start": 0,

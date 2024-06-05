@@ -6,6 +6,12 @@
 """
 
 import matplotlib
+'''
+为了确保训练时多线程运行绘图不崩溃，切换到非交互式后端
+tkinter 会报 main thread is not in main loop
+'''
+matplotlib.use('Agg')
+
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np

@@ -57,6 +57,7 @@ def pad_to_length(
     return torch.cat([x, xn], dim=pad_dim)
 
 
+# 用于按需填充和堆叠张量的函数
 def pad_and_stack(
     sequences: List[torch.Tensor],
     length: Optional[int] = None,

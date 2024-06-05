@@ -202,6 +202,9 @@ class SuperPoint(BaseModel):
                 for k, d in zip(keypoints, descriptors_dense)
             ]
 
+        # desc.transpose(-1, -2) 的作用是对描述符进行转置操作
+        # 描述符通常是一个三维张量，形状为 [batch_size, num_keypoints, descriptor_dim]
+        # 转置操作会交换最后两个维度，形状为 [batch_size, descriptor_dim, num_keypoints]
         pred = {
             "keypoints": keypoints + 0.5,
             "keypoint_scores": scores,

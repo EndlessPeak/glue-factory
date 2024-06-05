@@ -2,6 +2,13 @@ import inspect
 import sys
 import warnings
 
+'''
+为了确保训练时多线程运行绘图不崩溃，切换到非交互式后端
+tkinter 会报 main thread is not in main loop
+'''
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import torch
 from matplotlib.backend_tools import ToolToggleBase

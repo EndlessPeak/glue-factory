@@ -13,7 +13,12 @@ from tqdm import tqdm
 
 from .tensor import batch_to_device
 
-
+'''
+将模型对数据的预测结果导出到一个 HDF5 文件中
+通过 @torch.no_grad() 装饰器确保在进行预测时不会计算梯度
+@param loader 数据加载器
+@param model pytorch 模型
+'''
 @torch.no_grad()
 def export_predictions(
     loader,
