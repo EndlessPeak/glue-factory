@@ -46,7 +46,7 @@ default_train_conf = {
     "optimizer": "adam",  # name of optimizer in [adam, sgd, rmsprop]
     "opt_regexp": None,  # regular expression to filter parameters to optimize
     "optimizer_options": {},  # optional arguments passed to the optimizer
-    "lr": 0.0000625,  # learning rate 由于CUDA内存有限，批处理大小由128调整为8，学习率应当由0.001降低为0.0000625
+    "lr": 0.001,  # learning rate 由于CUDA内存有限，批处理大小由128调整为8(12)，学习率应当由0.001降低为6.25e-6(9.375e-6)
     "lr_schedule": {
         "type": None,  # string in {factor, exp, member of torch.optim.lr_scheduler}
         "start": 0,
@@ -185,25 +185,33 @@ def pack_lr_parameters(params, base_lr, lr_scaling):
 
 
 def training(rank, conf, output_dir, args):
+    # 需要恢复之前的训练
     if args.restore:
+        # 打印训练的名称
         logger.info(f"Restoring from previous training of {args.experiment}")
+        # 获得最后的训练检查点(不允许中断的检查点)，如果获取失败，则获取最好的检查点
         try:
             init_cp = get_last_checkpoint(args.experiment, allow_interrupted=False)
         except AssertionError:
             init_cp = get_best_checkpoint(args.experiment)
         logger.info(f"Restoring from checkpoint {init_cp.name}")
+        # 使用 torch.load 加载检查点，映射到 CPU 上
         init_cp = torch.load(str(init_cp), map_location="cpu")
+        # 合并检查点中的配置和当前配置
         conf = OmegaConf.merge(OmegaConf.create(init_cp["conf"]), conf)
+        # 合并默认训练配置和当前训练配置
         conf.train = OmegaConf.merge(default_train_conf, conf.train)
+        # 从检查点中获取最后一次训练的轮次，并设置为当前训练的起始轮次
         epoch = init_cp["epoch"] + 1
 
-        # get the best loss or eval metric from the previous best checkpoint
+        # 加载最佳检查点并从中获取评估指标
         best_cp = get_best_checkpoint(args.experiment)
         best_cp = torch.load(str(best_cp), map_location="cpu")
         best_eval = best_cp["eval"][conf.train.best_key]
+        # 释放最佳检查点
         del best_cp
+    # 新的训练
     else:
-        # we start a new, fresh training
         conf.train = OmegaConf.merge(default_train_conf, conf.train)
         epoch = 0
         best_eval = float("inf")
@@ -226,6 +234,7 @@ def training(rank, conf, output_dir, args):
 
     OmegaConf.set_struct(conf, True)  # prevent access to unknown entries
     set_seed(conf.train.seed)
+    # 训练过程中的记录器 由 Tensorboard 记录并保存
     if rank == 0:
         writer = SummaryWriter(log_dir=str(output_dir))
 
@@ -623,6 +632,13 @@ def training(rank, conf, output_dir, args):
 
 
 def main_worker(rank, conf, output_dir, args):
+    """
+    rank: 表示当前进程(或GPU)的标识符
+    conf: 配置(包括从配置文件定义的配置和命令行传入的配置)
+    output_dir: 实验输出目录
+    args: 命令行参数
+    """
+    # 对于主进程会将输出捕获到日志文件中，其他进程则不会
     if rank == 0:
         with capture_outputs(output_dir / "log.txt"):
             training(rank, conf, output_dir, args)
@@ -631,8 +647,11 @@ def main_worker(rank, conf, output_dir, args):
 
 
 if __name__ == "__main__":
+    # argparse 用于解析命令行参数
     parser = argparse.ArgumentParser()
+    # 定义实验名称，它将保存到 ../outputs/<experiment> 中
     parser.add_argument("experiment", type=str)
+    # 实验配置，它应该从 ./configs 中选择
     parser.add_argument("--conf", type=str)
     parser.add_argument(
         "--mixed_precision",
@@ -647,6 +666,12 @@ if __name__ == "__main__":
         type=str,
         choices=["default", "reduce-overhead", "max-autotune"],
     )
+
+    '''
+    1. action="store_true" 是预定义动作：
+       当命令行中包含这些参数，则对应属性值会被设置为 True；否则为 false
+    2. dotlist 捕获未被其他参数解析的所有剩余参数
+    '''
     parser.add_argument("--overfit", action="store_true")
     parser.add_argument("--restore", action="store_true")
     parser.add_argument("--distributed", action="store_true")
@@ -659,33 +684,47 @@ if __name__ == "__main__":
     parser.add_argument("dotlist", nargs="*")
     args = parser.parse_intermixed_args()
 
+    # 实验开始，记录日志，创建输出目录存储实验结果和配置文件
     logger.info(f"Starting experiment {args.experiment}")
+    # 输出目录 output_dir 是训练目录+实验名称组成
     output_dir = Path(TRAINING_PATH, args.experiment)
     output_dir.mkdir(exist_ok=True, parents=True)
 
+    # 使用 OmegaConf 从命令行设置的其他参数生成配置
     conf = OmegaConf.from_cli(args.dotlist)
+    # 如果提供了配置文件，将其与命令行配置合并
     if args.conf:
         conf = OmegaConf.merge(OmegaConf.load(args.conf), conf)
+    # 如果有 restore 选项，从已有的实验恢复配置，并与命令行配置合并
     elif args.restore:
         restore_conf = OmegaConf.load(output_dir / "config.yaml")
         conf = OmegaConf.merge(restore_conf, conf)
+    # 如果不是恢复模式，设置随机种子并保存最终配置
     if not args.restore:
         if conf.train.seed is None:
             conf.train.seed = torch.initial_seed() & (2**32 - 1)
         OmegaConf.save(conf, str(output_dir / "config.yaml"))
 
-    # copy gluefactory and submodule into output dir
+    # 复制 gluefactory 及配置中子模块的源代码到输出目录，确保实验的可重复性
     for module in conf.train.get("submodules", []) + [__module_name__]:
+        # 取所在的目录： parent
         mod_dir = Path(__import__(str(module)).__file__).parent
         shutil.copytree(mod_dir, output_dir / module, dirs_exist_ok=True)
 
+    # 分布式训练处理
     if args.distributed:
+        # 获取 GPU 数量
         args.n_gpus = torch.cuda.device_count()
+        # 创建分布式锁文件
         args.lock_file = output_dir / "distributed_lock"
+        # 如果该文件已存在，删除它
         if args.lock_file.exists():
             args.lock_file.unlink()
+        # 启动多个进程进行训练，进程数量等于GPU数量
         torch.multiprocessing.spawn(
+            # torch.multiprocessing.spawn 会为每个启动的进程分配 rank 并作为第一个参数传入
             main_worker, nprocs=args.n_gpus, args=(conf, output_dir, args)
         )
+    # 否则进行单机训练
     else:
         main_worker(0, conf, output_dir, args)

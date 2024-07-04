@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from PIL import Image
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
@@ -13,10 +14,14 @@ def check_image(file_path):
     :return: 如果文件损坏，返回文件路径；否则返回 None
     """
     try:
-        with Image.open(file_path) as img:
-            img.verify()  # 验证图像文件是否完整
+        # with Image.open(file_path) as img:
+        #     img.load()  # 验证图像文件是否完整
+        img = Image.open(file_path)
+        img.load()  # 尝试加载图像数据
+        img = np.array(img, dtype=np.float32)  # 尝试将图像转换为 NumPy 数组
         return None  # 图像文件没有问题
-    except (IOError, SyntaxError):
+    except (IOError, SyntaxError, ValueError) as e:
+        print(f"Corrupt image found: {file_path}, error: {e}")
         return file_path  # 图像文件损坏
 
 def process_folder(folder, progress_queue):

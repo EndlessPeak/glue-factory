@@ -3,8 +3,8 @@ data:
     data_dir: revisitop1m
     train_size: 150000
     val_size: 2000
-    batch_size: 8   # batch size 调整为 8
-    num_workers: 10  # dataloader 应当低于 CPU 核心数量 12
+    batch_size: 12   # batch size 调整为 8/12
+    num_workers: 8  # dataloader 应当低于 CPU 核心数量 12
     homography:
         difficulty: 0.7
         max_angle: 45
@@ -14,11 +14,11 @@ model:
     name: two_view_pipeline
     extractor:
         name: extractors.xfeat
-        max_num_keypoints: 512
+        max_num_keypoints: 512 # 增加关键点数量 512+256
         force_num_keypoints: true
         detection_threshold: -1
-        nms_radius: 3
-        trainable: False
+        nms_radius: 2
+        trainable: false
     ground_truth:
         name: matchers.homography_matcher
         th_positive: 3
@@ -33,7 +33,10 @@ train:
     epochs: 40
     log_every_iter: 100
     eval_every_iter: 500
-    lr: 1e-4
+    lr: 9.375e-6 # 学习率需要相应调整
+    # 1. batch_size 128 lr 1e-4
+    # 2. batch_size 8   lr 6.25e-6
+    # 3. batch_size 12  lr 9.375e-6
     lr_schedule:
         start: 20
         type: exp

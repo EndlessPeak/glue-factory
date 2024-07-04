@@ -145,6 +145,7 @@ python -m gluefactory.train sp+lg_megadepth
 
 然后，可以使用其实验名称评估模型：
 ```shell
+python -m gluefactory.eval.haptches --checkpoint sp+lg_homography
 python -m gluefactory.eval.megadepth1500 --checkpoint sp+lg_megadepth
 ```
 
@@ -156,8 +157,18 @@ python -m gluefactory.eval.megadepth1500 --checkpoint sp+lg_megadepth
 已经配置 `xfeat-light_{homography}.yaml` 文件，训练计划：
 ```shell
 python -m gluefactory.train xfeat+lg_homography \
-    --conf gluefactory/configs/xfeat+lightglue_homography.yaml \ 
-    data.batch_size=32  # for 1x 1080 GPU
+    --conf gluefactory/configs/xfeat+lightglue_homography.yaml \
+    data.batch_size=8
 ```
 
 需要配置 `superpoint-open+lightglue_{homography,megadepth}.yaml` 文件。
+
+注意：
+1. 由于 GPU 显存过低，暂时调整为 batch_size=8
+
+# Export Plan
+目前计划测试导出 lightglue 模型，它是 `two_view_pipeline` 的子模型。
+
+```shell
+python -m gluefactory.export xfeat+lg_homography
+```

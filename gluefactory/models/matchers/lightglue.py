@@ -89,6 +89,14 @@ class TokenConfidence(nn.Module):
 
 
 class Attention(nn.Module):
+    """
+    Scaled Dot-Product Attention 
+    缩放点积注意力机制
+    1. 缩放因子
+    2. 相似度计算
+    3. 注意力权重
+    4. 加权求和
+    """
     def __init__(self, allow_flash: bool) -> None:
         super().__init__()
         if allow_flash and not FLASH_AVAILABLE:
@@ -114,11 +122,15 @@ class Attention(nn.Module):
             v = F.scaled_dot_product_attention(*args, attn_mask=mask)
             return v if mask is None else v.nan_to_num()
         else:
+            # 缩放因子
             s = q.shape[-1] ** -0.5
+            # 相似度计算
             sim = torch.einsum("...id,...jd->...ij", q, k) * s
             if mask is not None:
                 sim.masked_fill(~mask, -float("inf"))
+            # 注意力权重 softmax 归一化
             attn = F.softmax(sim, -1)
+            # 加权求和
             return torch.einsum("...ij,...jd->...id", attn, v)
 
 
@@ -147,10 +159,11 @@ class SelfBlock(nn.Module):
         encoding: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        # 使用 xfeat+lg 时不支持反向传播, 可能是由于 @torch.inference_mode() 装饰器导致的
+        # 使用 xfeat+lg 时不支持反向传播
         # 方法一：对其本身新增一个克隆
         # x_clone = x.clone()
         # 方法二：去掉装饰器
+        # @torch.inference_mode()
         qkv = self.Wqkv(x)
         qkv = qkv.unflatten(-1, (self.num_heads, -1, 3)).transpose(1, 2)
         q, k, v = qkv[..., 0], qkv[..., 1], qkv[..., 2]
@@ -310,8 +323,12 @@ def filter_matches(scores: torch.Tensor, th: float):
 class LightGlue(nn.Module):
     default_conf = {
         "name": "lightglue",  # just for interfacing
-        # 修改 input_dim 和 descriptor_dim 的维度是不可行的，因为它们已被硬编码
-        "input_dim": 256,  # input descriptor dimension (autoselected from weights)
+        # 修改 input_dim 维度是可行的
+        # lightglue 将在 input_dim 与 descritor_dim 不对齐时添加线性层
+        # nn.Linear 层可以接受三维张量
+        # xfeat input_dim = 64
+        # superpoint input_dim = 256
+        "input_dim": 64,  # input descriptor dimension (autoselected from weights)
         "add_scale_ori": False,
         "descriptor_dim": 256,
         "n_layers": 9,

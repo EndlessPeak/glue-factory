@@ -82,8 +82,8 @@ class MegaDepth(BaseDataset):
     def download(self):
         data_dir = DATA_PATH / self.conf.data_dir
         tmp_dir = data_dir.parent / "megadepth_tmp"
-        if tmp_dir.exists():  # The previous download failed.
-            shutil.rmtree(tmp_dir)
+        # if tmp_dir.exists():  # The previous download failed.
+            # shutil.rmtree(tmp_dir)
         tmp_dir.mkdir(exist_ok=True, parents=True)
         url_base = "https://cvg-data.inf.ethz.ch/megadepth/"
         for tar_name, out_name in (

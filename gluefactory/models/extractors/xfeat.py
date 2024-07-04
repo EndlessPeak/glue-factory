@@ -152,7 +152,7 @@ class XFeatModel(nn.Module):
 
 class XFeat(BaseModel):
     default_conf = {
-        "descriptor_dim": 256,  # lightglue 需要 256 维度的描述子，而非 64 维
+        "descriptor_dim": 64,  # lightglue 需要 256 维度的描述子，而非 64 维
         "nms_radius": 2,  # kernel size = nms_radius * 2 + 1
         "max_num_keypoints": 4096,
         "force_num_keypoints": False,
@@ -168,10 +168,14 @@ class XFeat(BaseModel):
         self.interpolator = InterpolateSparse2d('bicubic')
         self._load_weights()
         '''
-        新增一个线性层，它将描述符扩展到 256 维度
-        该线性层用于处理 xfeat 的描述符
+        注意问题：
+        1. nn.Linear 实际上可以接受三维张量
+        2. xfeat 与 lightglue 的描述符维度不符合
+        3. 原先计划在 xfeat 中新增一个线性层，它将描述符扩展到 256 维度
+           但是这将破坏 xfeat 本身的结构，
+        4. 可以直接在 lightglue 中添加线性层
         '''
-        self.fc = nn.Linear(64, 256)
+        # self.fc = nn.Linear(64, 256)
 
     def _load_weights(self):
         # weights_path = '/home/leesin/Develop/DeepLearning/glue-factory/weights/xfeat_scripted.pt'
@@ -256,26 +260,27 @@ class XFeat(BaseModel):
         # descriptors = descriptors.permute(0, 2, 1)
 
         '''
+        Deprecated! 以下内容已失效！
         为了与 lightglue 相匹配，这里需要扩展描述符的维度
         xfeat 的描述符维度是 64 维
         lightglue 的描述符维度是 256 维
         '''
         # 1. 获取描述符形状
-        batch_size, num_keypoints, descriptor_dim = descriptors.shape
+        # batch_size, num_keypoints, descriptor_dim = descriptors.shape
         # print("batch_size is:",batch_size)
         # print("num_keypoints is:",num_keypoints)
         # print("descriptor_dim is:",descriptor_dim)
         # 2. 重塑描述符
-        # 将描述符从 [batch_size, descriptor_dim, num_keypoints] 转换为 [batch_size * num_keypoints, 64]
-        descriptors = descriptors.view(batch_size * num_keypoints, 64)
+        # 将描述符从 [batch_size, num_keypoints, descriptor_dim] 转换为 [batch_size * num_keypoints, 64]
+        # descriptors = descriptors.view(batch_size * num_keypoints, 64)
         # 3. 通过线性层扩展描述符的维度
         # 使用线性层将描述符维度从 64 扩展到 256，并通过 ReLU 激活函数添加非线性变换
-        expanded_descriptors = F.relu(self.fc(descriptors))
+        # expanded_descriptors = F.relu(self.fc(descriptors))
         # 4. 重塑扩展后的描述符
         # 将扩展后的描述符重塑回 [batch_size, num_keypoints, 256]
-        expanded_descriptors = expanded_descriptors.view(batch_size, num_keypoints, 256)
-
-        return keypoints, scores, expanded_descriptors
+        # expanded_descriptors = expanded_descriptors.view(batch_size, num_keypoints, 256)
+        # return keypoints, scores, expanded_descriptors
+        return keypoints, scores, descriptors 
 
     def preprocess_tensor(self, x):
         """ Guarantee that image is divisible by 32 to avoid aliasing artifacts. """
